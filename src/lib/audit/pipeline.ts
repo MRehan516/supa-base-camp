@@ -211,7 +211,7 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
     if (!prediction) break;
     mlUsed = true;
     const confidence = Math.max(...prediction.probabilities);
-    options.onTrace?.(`link-model("${text.slice(0, 40)}") → ${prediction.label} ${(confidence * 100).toFixed(1)}%`);
+    options.onTrace?.(`link-model("${linkText.slice(0, 40)}") → ${prediction.label} ${(confidence * 100).toFixed(1)}%`);
     if (prediction.label === "vague" && confidence >= 0.6) {
       const meta = RULE_INDEX["link-vague"];
       mlFindings.push({
@@ -219,21 +219,24 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
         wcag: meta.wcag,
         level: meta.level,
         severityRule: meta.severity,
-        message: `The link-text model classified "${text}" as vague (${(confidence * 100).toFixed(1)}% confidence).`,
+        message: `Potentially vague link text: the link-text model classified "${linkText}" as vague (${(confidence * 100).toFixed(1)}% probability). Advisory — not a deterministic WCAG failure.`,
         el: link,
-        extra: { linkText: text },
+        extra: { linkText },
       });
     }
   }
 
+  const modelOnly = new Set(mlFindings);
   const everything = [...combined, ...mlFindings];
   mlFindings.forEach((f) => {
     ruleCounts[f.ruleId] = (ruleCounts[f.ruleId] ?? 0) + 1;
   });
 
-  // 4b. severity prediction for every issue
+  // 4b. severity + issue-type predictions attached as supporting evidence
+  const codeCounters: Record<string, number> = {};
   for (const finding of everything) {
     const element = finding.el;
+    const meta = RULE_INDEX[finding.ruleId];
     const row: SeverityRow = {
       ruleId: finding.ruleId,
       elementType: element?.tagName.toLowerCase() ?? "other",
@@ -246,7 +249,7 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
           : 0,
       sameRuleCount: ruleCounts[finding.ruleId] ?? 1,
     };
-    const prediction = await predictSeverity(row);
+    const prediction = await sev(row);
     const detail: MlDetail = { severityFeatures: row };
     let severityMl: Severity | null = null;
     let confidence: number | null = null;
@@ -257,45 +260,81 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
       detail.severityProbs = prediction.probabilities;
       options.onTrace?.(`severity-model(${finding.ruleId}) → ${prediction.label} ${(confidence * 100).toFixed(1)}%`);
     }
+    const snippet = snippetOf(element);
+    const tag = element?.tagName.toLowerCase() ?? "html";
+    if (snippet && !["html", "head", "body", "style", "meta"].includes(tag)) {
+      const typePrediction = await text("issueType", snippet);
+      if (typePrediction) {
+        mlUsed = true;
+        detail.typeProbs = typePrediction.probabilities;
+        detail.typeClasses = typePrediction.classes;
+        detail.typeLabel = typePrediction.label;
+        options.onTrace?.(`issue-type-model(${tag}) → ${typePrediction.label}`);
+      }
+    }
     if (finding.extra?.altText !== undefined) {
-      const altPrediction = await predictText("alt", finding.extra.altText);
+      const altPrediction = await text("alt", finding.extra.altText);
       if (altPrediction) {
         detail.altProbs = altPrediction.probabilities;
         detail.altLabel = altPrediction.label;
       }
     }
     if (finding.extra?.linkText !== undefined) {
-      const linkPrediction = await predictText("link", finding.extra.linkText);
+      const linkPrediction = await text("link", finding.extra.linkText);
       if (linkPrediction) {
         detail.linkProbs = linkPrediction.probabilities;
         detail.linkLabel = linkPrediction.label;
       }
     }
 
+    const prefix = meta ? CATEGORY_CODE[meta.category] : "GEN";
+    codeCounters[prefix] = (codeCounters[prefix] ?? 0) + 1;
+    const isModel = modelOnly.has(finding);
+
     drafts.push({
       rule_id: finding.ruleId,
       wcag_criterion: finding.wcag,
       wcag_level: finding.level,
       selector: element ? cssPath(element) : "html",
-      snippet: snippetOf(element),
+      snippet,
       message: finding.message,
       severity_rule: finding.severityRule,
       severity_ml: severityMl,
       ml_confidence: confidence,
       ml_detail: detail,
       status: "open",
+      issue_code: `${prefix}-${String(codeCounters[prefix]).padStart(3, "0")}`,
+      wcag_principle: principleOf(finding.wcag),
+      category: meta?.category ?? "document",
+      auto_fixable: meta?.fixable ?? false,
+      human_review: isModel || (meta?.humanReview ?? true),
+      evidence: evidenceOf(finding),
+      detection_source: isModel ? "model" : "rule",
     });
   }
 
   rendered?.dispose();
-  emit("ml", "ML inference", mlUsed ? `${drafts.length} issues scored by the models` : "Models not trained yet — rule severity used", 0.85);
+  emit(
+    "ml",
+    "ML inference",
+    options.rulesOnly ? "Rules-only run — no model used" : mlUsed ? `${drafts.length} findings annotated by the models` : "Models not trained yet — rule severity used",
+    0.85,
+  );
   await nextFrame();
 
   // ---- 5. Score --------------------------------------------------------
-  emit("scoring", "Scoring", "Applying the weighted severity formula", 0.9);
+  emit("scoring", "Scoring", "Applying the AccessLens Audit Score formula to rule findings", 0.9);
   const score = computeScore(drafts, elementCount);
   const durationMs = Math.round(performance.now() - started);
-  emit("done", "Done", `Score ${score}/100 in ${durationMs} ms`, 1);
+  emit("done", "Done", `AccessLens Audit Score ${score}/100 in ${durationMs} ms`, 1);
 
-  return { issues: drafts, elementCount, durationMs, score, stages, mlUsed };
+  const coverage: AuditCoverage = {
+    rulesExecuted: RULES.filter((r) => r.source === "rule").length + (mlUsed ? RULES.filter((r) => r.source === "model").length : 0),
+    criteriaRepresented: WCAG_CRITERIA_COVERED.length,
+    elementsInspected: elementCount,
+    contrastRendered: Boolean(rendered),
+    categories: Array.from(new Set(RULES.map((r) => r.category))),
+  };
+
+  return { issues: drafts, elementCount, durationMs, score, stages, mlUsed, coverage };
 }
