@@ -168,11 +168,14 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
   }, {});
 
   // ---- 4. ML inference -------------------------------------------------
-  emit("ml", "ML inference", "Scoring alt text, link text and severity", 0.6);
+  emit("ml", "ML inference", options.rulesOnly ? "Skipped — rules-only run" : "Scoring alt text, link text, issue type and severity", 0.6);
   let mlUsed = false;
   const drafts: DraftIssue[] = [];
+  const text = (kind: "alt" | "link" | "issueType", value: string) =>
+    options.rulesOnly ? Promise.resolve(null) : predictText(kind, value);
+  const sev = (row: SeverityRow) => (options.rulesOnly ? Promise.resolve(null) : predictSeverity(row));
 
-  // 4a. model-discovered issues the rules cannot judge
+  // 4a. advisory, model-only findings (never scored, always need human review)
   const mlFindings: typeof combined = [];
   const imagesWithAlt = Array.from(doc.querySelectorAll("img[alt]")).filter((img) => {
     const alt = (img.getAttribute("alt") ?? "").trim();
@@ -180,7 +183,7 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
   });
   for (const img of imagesWithAlt) {
     const alt = (img.getAttribute("alt") ?? "").trim();
-    const prediction = await predictText("alt", alt);
+    const prediction = await text("alt", alt);
     if (!prediction) break;
     mlUsed = true;
     options.onTrace?.(`alt-model("${alt.slice(0, 40)}") → ${prediction.label} ${(Math.max(...prediction.probabilities) * 100).toFixed(1)}%`);
@@ -193,7 +196,7 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
         wcag: meta.wcag,
         level: meta.level,
         severityRule: meta.severity,
-        message: `The alt-text model classified "${alt}" as ${prediction.label} (${(confidence * 100).toFixed(1)}% confidence).`,
+        message: `Potentially uninformative alt text: the alt-text model classified "${alt}" as ${prediction.label} (${(confidence * 100).toFixed(1)}% probability). Advisory — a person should check it against the image.`,
         el: img,
         extra: { altText: alt },
       });
@@ -202,9 +205,9 @@ export async function runPipeline(html: string, options: PipelineOptions = {}): 
 
   const links = Array.from(doc.querySelectorAll("a[href]"));
   for (const link of links) {
-    const text = accessibleName(link);
-    if (!text) continue;
-    const prediction = await predictText("link", text);
+    const linkText = accessibleName(link);
+    if (!linkText) continue;
+    const prediction = await text("link", linkText);
     if (!prediction) break;
     mlUsed = true;
     const confidence = Math.max(...prediction.probabilities);
