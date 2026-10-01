@@ -500,7 +500,13 @@ export const DatasetService = {
   },
 
   async add(dataset: string, text: string, label: string): Promise<void> {
+    const allowed: Record<string, string[]> = {
+      alt: ["missing_info", "poor", "good", "decorative_ok"],
+      link: ["vague", "descriptive"],
+    };
+    if (!allowed[dataset]?.includes(label)) throw new Error("Unknown dataset or label.");
     if (!text.trim() && dataset !== "alt") throw new Error("Enter the text for the example.");
+    if (text.length > LIMITS.datasetText) throw new Error(`Keep examples under ${LIMITS.datasetText} characters.`);
     const { error } = await supabase.from("dataset_examples").insert({ dataset, text, label });
     fail("Could not save the example", error);
     trace(`db.insert dataset_examples → ${dataset}/${label}`);
