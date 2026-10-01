@@ -17,6 +17,7 @@ import {
 
 import { DatasetService, MlService, setTraceSink } from "./services";
 import {
+  ALL_MODEL_KINDS,
   loadAllModels,
   resetModel,
   setUserExamples,
@@ -123,7 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const trainAll = useCallback(async () => {
-    for (const kind of ["alt", "link", "severity"] as ModelKind[]) {
+    for (const kind of ALL_MODEL_KINDS) {
       await train(kind);
     }
   }, [train]);
@@ -141,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated || startupRan.current) return;
     startupRan.current = true;
-    const missing = (["alt", "link", "severity"] as ModelKind[]).filter((kind) => !models[kind]);
+    const missing = ALL_MODEL_KINDS.filter((kind) => !models[kind]);
     if (settings.trainOnStartup && missing.length) void trainAll();
   }, [hydrated, settings.trainOnStartup, models, trainAll]);
 
@@ -155,7 +156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       train,
       trainAll,
       reset,
-      modelsReady: Boolean(models.alt && models.link && models.severity),
+      modelsReady: ALL_MODEL_KINDS.every((k) => Boolean(models[k])),
       hydrated,
       console: consoleLines,
       clearConsole: () => setConsoleLines([]),

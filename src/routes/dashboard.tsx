@@ -7,7 +7,7 @@ import { BarList, DonutBreakdown, TrendChart } from "@/components/charts";
 import { Breadcrumbs, EmptyState, PageHeader, Panel, Stat } from "@/components/primitives";
 import { AuditService, StatsService } from "@/lib/services";
 import { useApp } from "@/lib/app-context";
-import { MODEL_NAMES, type ModelKind } from "@/lib/ml/engine";
+import { ALL_MODEL_KINDS, MODEL_NAMES } from "@/lib/ml/engine";
 import { RULE_INDEX } from "@/lib/audit/rules";
 
 export const Route = createFileRoute("/dashboard")({
@@ -139,7 +139,7 @@ function Dashboard() {
       ) : null}
 
       <div className="grid gap-5 md:grid-cols-3">
-        {(["alt", "link", "severity"] as ModelKind[]).map((kind) => {
+        {ALL_MODEL_KINDS.map((kind) => {
           const model = models[kind];
           return (
             <Link key={kind} to="/ml-lab" className="panel block p-5 hover:bg-muted">

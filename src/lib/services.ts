@@ -572,6 +572,7 @@ export const ReportService = {
   toJson(audit: AuditWithIssues): string {
     return JSON.stringify(
       {
+        note: "AccessLens Audit Score is a project-defined metric summarising detected issues. It is not a certification of WCAG compliance.",
         audit: {
           id: audit.id,
           created_at: audit.created_at,
@@ -581,6 +582,13 @@ export const ReportService = {
           project: audit.project?.name ?? null,
         },
         issues: audit.issues,
+        remediation: audit.remediated
+          ? {
+              score_after: audit.remediated.score_after,
+              issues_after: audit.remediated.issues_after,
+              after_issues: audit.remediated.after_issues ?? [],
+            }
+          : null,
       },
       null,
       2,
@@ -588,17 +596,29 @@ export const ReportService = {
   },
 
   toCsv(audit: AuditWithIssues): string {
-    const header = ["rule_id", "wcag_criterion", "level", "selector", "severity_rule", "severity_ml", "ml_confidence", "message"];
-    const escape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const header = ["issue_code", "rule_id", "wcag_criterion", "level", "principle", "category", "detection_source", "selector", "severity_rule", "severity_ml", "ml_confidence", "auto_fixable", "human_review", "status", "message"];
+    // Prefix cells that a spreadsheet would treat as formulas (CSV injection).
+    const escape = (value: unknown) => {
+      let text = String(value ?? "");
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
     const lines = audit.issues.map((issue) =>
       [
+        issue.issue_code ?? "",
         issue.rule_id,
         issue.wcag_criterion,
         issue.wcag_level,
+        issue.wcag_principle ?? "",
+        issue.category ?? "",
+        issue.detection_source ?? "rule",
         issue.selector,
         issue.severity_rule,
         issue.severity_ml ?? "",
         issue.ml_confidence?.toFixed(4) ?? "",
+        issue.auto_fixable ?? "",
+        issue.human_review ?? "",
+        issue.status,
         issue.message,
       ]
         .map(escape)
