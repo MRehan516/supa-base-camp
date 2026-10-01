@@ -13,12 +13,31 @@
  * where the device supports it.
  */
 
-import type { Issue, MlDetail, PipelineStage, SeverityRow, Severity } from "../types";
-import { RULE_INDEX, accessibleName, cssPath, runContrastChecks, runRuleChecks, snippetOf } from "./rules";
+import type { Finding, Issue, IssueEvidence, MlDetail, PipelineStage, SeverityRow, Severity } from "../types";
+import {
+  CATEGORY_CODE,
+  RULE_INDEX,
+  RULES,
+  WCAG_CRITERIA_COVERED,
+  accessibleName,
+  cssPath,
+  principleOf,
+  runContrastChecks,
+  runRuleChecks,
+  snippetOf,
+} from "./rules";
 import { computeScore } from "./scoring";
 import { predictSeverity, predictText } from "../ml/engine";
 
 export type DraftIssue = Omit<Issue, "id" | "audit_id" | "created_at">;
+
+export interface AuditCoverage {
+  rulesExecuted: number;
+  criteriaRepresented: number;
+  elementsInspected: number;
+  contrastRendered: boolean;
+  categories: string[];
+}
 
 export interface PipelineResult {
   issues: DraftIssue[];
@@ -27,12 +46,15 @@ export interface PipelineResult {
   score: number;
   stages: PipelineStage[];
   mlUsed: boolean;
+  coverage: AuditCoverage;
 }
 
 export interface PipelineOptions {
   onStage?: (stage: PipelineStage) => void;
   /** Called for every model inference when verification mode is on. */
   onTrace?: (line: string) => void;
+  /** Skip all model inference (used by the validation suite for a rules-only run). */
+  rulesOnly?: boolean;
 }
 
 function nextFrame(): Promise<void> {
@@ -42,10 +64,17 @@ function nextFrame(): Promise<void> {
   });
 }
 
-/** Render HTML inside a sandboxed, off-screen iframe so computed styles exist. */
+/**
+ * Render HTML inside a sandboxed, off-screen iframe so computed styles exist.
+ *
+ * Security: `sandbox="allow-same-origin"` WITHOUT `allow-scripts` means no
+ * script in the user's HTML can run, no forms submit, no popups open and no
+ * top-level navigation happens; the parent can still read computed styles.
+ */
 export async function renderInIframe(html: string): Promise<{ doc: Document; dispose: () => void } | null> {
   if (typeof document === "undefined") return null;
   const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-same-origin");
   frame.setAttribute("aria-hidden", "true");
   frame.setAttribute("tabindex", "-1");
   frame.setAttribute("title", "Accessibility analysis sandbox");
@@ -63,6 +92,23 @@ export async function renderInIframe(html: string): Promise<{ doc: Document; dis
     return null;
   }
   return { doc, dispose: () => frame.remove() };
+}
+
+function evidenceOf(finding: Finding): IssueEvidence {
+  const values: Record<string, string | number | boolean> = {};
+  const extra = finding.extra ?? {};
+  if (extra.altText !== undefined) values.alt = extra.altText;
+  if (extra.linkText !== undefined) values.linkText = extra.linkText;
+  if (extra.ratio !== undefined) values.contrastRatio = Number(extra.ratio.toFixed(2));
+  if (extra.required !== undefined) values.requiredRatio = extra.required;
+  if (extra.fg) values.foreground = extra.fg;
+  if (extra.bg) values.background = extra.bg;
+  if (extra.largeText !== undefined) values.largeText = extra.largeText;
+  return {
+    tag: finding.el?.tagName.toLowerCase() ?? "document",
+    trigger: RULE_INDEX[finding.ruleId]?.trigger ?? "",
+    values,
+  };
 }
 
 function isInNav(el: Element | null): boolean {
