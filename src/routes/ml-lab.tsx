@@ -242,7 +242,7 @@ function MlLab() {
         </>
       )}
 
-      {active !== "severity" ? <Playground kind={active} onLogged={() => void logs.refetch()} /> : null}
+      {active === "alt" || active === "link" ? <Playground kind={active} onLogged={() => void logs.refetch()} /> : null}
 
       <Panel label="Logs" title="Recent predictions stored in the database">
         {logs.data && logs.data.length > 0 ? (
