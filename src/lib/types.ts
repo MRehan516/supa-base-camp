@@ -90,6 +90,7 @@ export interface Issue {
   evidence?: IssueEvidence | null;
   detection_source?: "rule" | "model";
   reviewed_at?: string | null;
+  fixes?: FixRecord[];
   created_at?: string;
 }
 
