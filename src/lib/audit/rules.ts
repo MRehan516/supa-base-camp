@@ -326,6 +326,10 @@ export function runRuleChecks(doc: Document): Finding[] {
       push("img-alt-filename", img, `Alt text looks like a file name ("${alt}").`, { altText: alt });
       return;
     }
+    if (/^(img|dsc|dscn|image|photo|pic|screenshot|scan)[-_ ]?\d{2,}$/i.test(alt) || /^\d{3,}$/.test(alt)) {
+      push("img-alt-filename", img, `Alt text looks like a camera or asset id ("${alt}").`, { altText: alt });
+      return;
+    }
     if (alt.length > 150) {
       push("img-alt-long", img, `Alt text is ${alt.length} characters long.`, { altText: alt });
       return;
@@ -464,13 +468,49 @@ export function runRuleChecks(doc: Document): Finding[] {
       push("tabindex-positive", el, `tabindex="${value}" forces a manual focus order.`);
     }
   });
+  const NATIVE_INTERACTIVE = ["a", "button", "input", "select", "textarea", "summary"];
   doc.querySelectorAll("[onclick]").forEach((el) => {
     const tag = el.tagName.toLowerCase();
-    const interactive = ["a", "button", "input", "select", "textarea", "summary"].includes(tag);
+    const interactive = NATIVE_INTERACTIVE.includes(tag);
     const hasRole = Boolean(el.getAttribute("role"));
     const hasTabindex = el.hasAttribute("tabindex");
     if (!interactive && !(hasRole && hasTabindex)) {
       push("click-handler-non-interactive", el, `<${tag}> has a click handler but no role and no tabindex.`);
+    }
+  });
+  doc.querySelectorAll("[onmouseover], [onmousedown], [ondblclick], [onmouseenter]").forEach((el) => {
+    const hasKeyboard = el.hasAttribute("onkeydown") || el.hasAttribute("onkeyup") || el.hasAttribute("onkeypress") || el.hasAttribute("onfocus");
+    if (hasKeyboard) return;
+    const handlers = ["onmouseover", "onmousedown", "ondblclick", "onmouseenter"].filter((h) => el.hasAttribute(h));
+    push("mouse-only-handler", el, `<${el.tagName.toLowerCase()}> uses ${handlers.join(", ")} with no keyboard or focus equivalent.`);
+  });
+  const INTERACTIVE_ROLES = new Set(["button", "link", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "slider", "spinbutton", "textbox", "combobox", "treeitem"]);
+  doc.querySelectorAll("[role]").forEach((el) => {
+    const role = (el.getAttribute("role") ?? "").trim().split(/\s+/)[0]?.toLowerCase() ?? "";
+    if (!INTERACTIVE_ROLES.has(role)) return;
+    const tag = el.tagName.toLowerCase();
+    const nativelyFocusable = NATIVE_INTERACTIVE.includes(tag) && !(tag === "a" && !el.hasAttribute("href"));
+    if (nativelyFocusable || el.hasAttribute("tabindex") || el.hasAttribute("onclick")) return;
+    if (el.closest('[role="listbox"],[role="menu"],[role="tablist"],[role="tree"],[role="radiogroup"]')?.hasAttribute("aria-activedescendant")) return;
+    push("interactive-role-not-focusable", el, `role="${role}" on a <${tag}> that has no tabindex, so the keyboard cannot reach it.`);
+  });
+  // Static focus-indicator check: only what can be read from the markup.
+  const styleText = Array.from(doc.querySelectorAll("style")).map((s) => s.textContent ?? "").join("\n");
+  const focusRule = /([^{}]*:focus[^{}]*)\{([^}]*)\}/gi;
+  let match: RegExpExecArray | null;
+  while ((match = focusRule.exec(styleText))) {
+    const body = match[2].toLowerCase();
+    const removes = /outline\s*:\s*(none|0)\b/.test(body) || /outline-style\s*:\s*none/.test(body);
+    const replaces = /box-shadow\s*:/.test(body) || /border(-color)?\s*:/.test(body) || /background(-color)?\s*:/.test(body) || /text-decoration\s*:/.test(body);
+    if (removes && !replaces) {
+      const owner = doc.querySelector("style");
+      push("focus-outline-removed", owner, `The rule "${match[1].trim()}" removes the focus outline and sets no replacement style.`);
+    }
+  }
+  doc.querySelectorAll("[style]").forEach((el) => {
+    if (!el.matches(FOCUSABLE)) return;
+    if (/outline\s*:\s*(none|0)\b/i.test(el.getAttribute("style") ?? "")) {
+      push("focus-outline-removed", el, "A focusable element has an inline outline:none.");
     }
   });
 
