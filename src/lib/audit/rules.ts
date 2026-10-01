@@ -9,47 +9,106 @@
 import type { Finding, Severity, WcagLevel } from "../types";
 import { contrastRatio, flatten, parseColour, type Rgb } from "./colour";
 
+export type WcagPrinciple = "Perceivable" | "Operable" | "Understandable" | "Robust";
+
+export type IssueCategory =
+  | "images"
+  | "forms"
+  | "structure"
+  | "language"
+  | "links"
+  | "contrast"
+  | "aria"
+  | "keyboard"
+  | "media"
+  | "tables"
+  | "document";
+
+export const CATEGORY_LABEL: Record<IssueCategory, string> = {
+  images: "Images & alt text",
+  forms: "Forms & labels",
+  structure: "Headings & landmarks",
+  language: "Language",
+  links: "Links & buttons",
+  contrast: "Colour contrast",
+  aria: "ARIA usage",
+  keyboard: "Keyboard access",
+  media: "Time-based media",
+  tables: "Data tables",
+  document: "Document metadata",
+};
+
+/** Short code prefix used to build issue IDs such as IMG-003. */
+export const CATEGORY_CODE: Record<IssueCategory, string> = {
+  images: "IMG", forms: "FRM", structure: "STR", language: "LNG", links: "LNK", contrast: "CON",
+  aria: "ARI", keyboard: "KBD", media: "MED", tables: "TBL", document: "DOC",
+};
+
 export interface RuleMeta {
   id: string;
   wcag: string;
   level: WcagLevel;
   title: string;
+  /** Why the problem matters to users. */
   why: string;
+  /** The exact condition that makes the rule trigger. */
+  trigger: string;
   severity: Severity;
   fixable: boolean;
+  category: IssueCategory;
+  /** True when the rule is a heuristic or the fix needs a person's judgement. */
+  humanReview: boolean;
+  /** "rule" = deterministic DOM check; "model" = advisory finding raised only by an ML model. */
+  source: "rule" | "model";
 }
 
-export const RULES: RuleMeta[] = [
-  { id: "img-alt-missing", wcag: "1.1.1 Non-text Content", level: "A", title: "Image without alt attribute", why: "Screen readers announce the file name or nothing at all.", severity: "critical", fixable: true },
-  { id: "img-alt-empty-meaningful", wcag: "1.1.1 Non-text Content", level: "A", title: "Empty alt on a meaningful image", why: "An empty alt hides the image from assistive technology.", severity: "serious", fixable: true },
-  { id: "img-alt-filename", wcag: "1.1.1 Non-text Content", level: "A", title: "Alt text is the file name", why: "File names carry no meaning for the reader.", severity: "serious", fixable: true },
-  { id: "img-alt-long", wcag: "1.1.1 Non-text Content", level: "A", title: "Alt text is excessively long", why: "Over ~150 characters belongs in a caption or long description.", severity: "minor", fixable: true },
-  { id: "img-alt-poor", wcag: "1.1.1 Non-text Content", level: "A", title: "Alt text judged uninformative by the model", why: "Generic words such as 'image' or 'photo' describe nothing.", severity: "moderate", fixable: true },
-  { id: "input-label-missing", wcag: "3.3.2 Labels or Instructions", level: "A", title: "Form control without a label", why: "The user cannot tell what to type into the field.", severity: "critical", fixable: true },
-  { id: "input-placeholder-only", wcag: "3.3.2 Labels or Instructions", level: "A", title: "Placeholder used as the only label", why: "Placeholder text disappears on input and is often unreadable.", severity: "serious", fixable: true },
-  { id: "heading-missing-h1", wcag: "1.3.1 Info and Relationships", level: "A", title: "Page has no h1", why: "Users who navigate by headings lose the page's main topic.", severity: "moderate", fixable: true },
-  { id: "heading-multiple-h1", wcag: "1.3.1 Info and Relationships", level: "A", title: "More than one h1", why: "Multiple top-level headings make the outline ambiguous.", severity: "minor", fixable: false },
-  { id: "heading-skip", wcag: "1.3.1 Info and Relationships", level: "A", title: "Heading level skipped", why: "Jumping h2 to h4 breaks the document outline.", severity: "moderate", fixable: true },
-  { id: "heading-empty", wcag: "1.3.1 Info and Relationships", level: "A", title: "Empty heading", why: "An empty heading is announced with no content.", severity: "moderate", fixable: false },
-  { id: "html-lang-missing", wcag: "3.1.1 Language of Page", level: "A", title: "Missing lang on <html>", why: "Screen readers pick the wrong pronunciation rules.", severity: "serious", fixable: true },
-  { id: "link-empty", wcag: "2.4.4 Link Purpose", level: "A", title: "Link with no accessible name", why: "The link is announced only as 'link'.", severity: "critical", fixable: true },
-  { id: "button-empty", wcag: "4.1.2 Name, Role, Value", level: "A", title: "Button with no accessible name", why: "The control cannot be identified or voice-operated.", severity: "critical", fixable: true },
-  { id: "link-vague", wcag: "2.4.4 Link Purpose", level: "A", title: "Vague link text (model judgement)", why: "'Click here' out of context tells the user nothing.", severity: "moderate", fixable: true },
-  { id: "contrast-insufficient", wcag: "1.4.3 Contrast (Minimum)", level: "AA", title: "Text contrast below the WCAG minimum", why: "Low-vision users cannot read the text.", severity: "serious", fixable: true },
-  { id: "landmark-main-missing", wcag: "1.3.1 Info and Relationships", level: "A", title: "No main landmark", why: "Users cannot skip straight to the primary content.", severity: "moderate", fixable: true },
-  { id: "landmark-duplicate-unlabelled", wcag: "1.3.1 Info and Relationships", level: "A", title: "Duplicate landmark without a label", why: "Two navigations sound identical in the landmark list.", severity: "minor", fixable: true },
-  { id: "table-th-missing", wcag: "1.3.1 Info and Relationships", level: "A", title: "Data table without header cells", why: "Cell values are read without their column meaning.", severity: "serious", fixable: true },
-  { id: "table-caption-missing", wcag: "1.3.1 Info and Relationships", level: "A", title: "Table without a caption", why: "The table's purpose is not announced.", severity: "minor", fixable: true },
-  { id: "aria-role-invalid", wcag: "4.1.2 Name, Role, Value", level: "A", title: "Invalid ARIA role", why: "An unknown role is ignored, losing the intended semantics.", severity: "serious", fixable: true },
-  { id: "aria-hidden-focusable", wcag: "4.1.2 Name, Role, Value", level: "A", title: "aria-hidden on a focusable element", why: "Keyboard users land on an element the screen reader ignores.", severity: "critical", fixable: true },
-  { id: "aria-required-attr", wcag: "4.1.2 Name, Role, Value", level: "A", title: "Missing required ARIA attribute", why: "Widget roles need their state attributes to be usable.", severity: "serious", fixable: true },
-  { id: "tabindex-positive", wcag: "2.4.3 Focus Order", level: "A", title: "Positive tabindex", why: "It forces an unnatural, unpredictable focus order.", severity: "moderate", fixable: true },
-  { id: "click-handler-non-interactive", wcag: "2.1.1 Keyboard", level: "A", title: "Click handler on a non-interactive element", why: "The action is unreachable by keyboard.", severity: "critical", fixable: true },
-  { id: "media-captions-missing", wcag: "1.2.2 Captions (Prerecorded)", level: "A", title: "Media without a captions track", why: "Deaf and hard-of-hearing users lose the content.", severity: "serious", fixable: false },
-  { id: "doc-title-missing", wcag: "2.4.2 Page Titled", level: "A", title: "Missing document title", why: "Tabs, history and screen readers have nothing to announce.", severity: "serious", fixable: true },
-  { id: "doc-duplicate-id", wcag: "4.1.1 Parsing", level: "A", title: "Duplicate id value", why: "Label and ARIA references resolve to the wrong element.", severity: "moderate", fixable: false },
-  { id: "doc-viewport-zoom", wcag: "1.4.4 Resize Text", level: "AA", title: "Zoom disabled in the viewport meta", why: "Users who need to zoom cannot.", severity: "serious", fixable: true },
+/** WCAG principle derived from the first digit of the success criterion. */
+export function principleOf(wcag: string): WcagPrinciple {
+  const first = wcag.trim().charAt(0);
+  if (first === "1") return "Perceivable";
+  if (first === "2") return "Operable";
+  if (first === "3") return "Understandable";
+  return "Robust";
+}
+
+type RuleRow = Omit<RuleMeta, "source"> & { source?: RuleMeta["source"] };
+
+const RULE_ROWS: RuleRow[] = [
+  { id: "img-alt-missing", wcag: "1.1.1 Non-text Content", level: "A", category: "images", title: "Image without alt attribute", why: "Screen readers announce the file name or nothing at all.", trigger: "An <img> element has no alt attribute.", severity: "critical", fixable: true, humanReview: true },
+  { id: "img-alt-empty-meaningful", wcag: "1.1.1 Non-text Content", level: "A", category: "images", title: "Empty alt on a possibly meaningful image", why: "An empty alt hides the image from assistive technology.", trigger: "alt=\"\" on an image that is not marked decorative (no role=presentation, no aria-hidden, no decorative file name).", severity: "serious", fixable: true, humanReview: true },
+  { id: "img-alt-filename", wcag: "1.1.1 Non-text Content", level: "A", category: "images", title: "Alt text is a file name or camera id", why: "File names and ids such as IMG_2938 carry no meaning for the reader.", trigger: "The alt equals the file name, ends in an image extension, or matches a camera-id pattern (IMG_1234, DSC0042).", severity: "serious", fixable: true, humanReview: true },
+  { id: "img-alt-long", wcag: "1.1.1 Non-text Content", level: "A", category: "images", title: "Alt text is excessively long", why: "Over ~150 characters belongs in a caption or long description.", trigger: "The alt attribute is longer than 150 characters.", severity: "minor", fixable: true, humanReview: true },
+  { id: "img-alt-poor", wcag: "1.1.1 Non-text Content", level: "A", category: "images", title: "Potentially uninformative alt text", why: "Generic words such as 'image' or 'photo' describe nothing.", trigger: "The alt is a single generic word from a fixed list (image, photo, icon…), or the alt-text model flagged it (advisory).", severity: "moderate", fixable: true, humanReview: true },
+  { id: "input-label-missing", wcag: "3.3.2 Labels or Instructions", level: "A", category: "forms", title: "Form control without a label", why: "The user cannot tell what to type into the field.", trigger: "An input, select or textarea has no <label>, aria-label or aria-labelledby.", severity: "critical", fixable: true, humanReview: true },
+  { id: "input-placeholder-only", wcag: "3.3.2 Labels or Instructions", level: "A", category: "forms", title: "Placeholder used as the only label", why: "Placeholder text disappears on input and is often unreadable.", trigger: "The control has a placeholder but no label, aria-label or aria-labelledby.", severity: "serious", fixable: true, humanReview: false },
+  { id: "heading-missing-h1", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "Page has no h1", why: "Users who navigate by headings lose the page's main topic.", trigger: "The page contains headings but none is an h1.", severity: "moderate", fixable: true, humanReview: false },
+  { id: "heading-multiple-h1", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "More than one h1", why: "Multiple top-level headings make the outline ambiguous.", trigger: "More than one h1 element exists; every h1 after the first is reported.", severity: "minor", fixable: false, humanReview: true },
+  { id: "heading-skip", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "Heading level skipped", why: "Jumping h2 to h4 breaks the document outline.", trigger: "A heading is more than one level deeper than the heading before it.", severity: "moderate", fixable: true, humanReview: false },
+  { id: "heading-empty", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "Empty heading", why: "An empty heading is announced with no content.", trigger: "A heading element has no text and no image with alt text.", severity: "moderate", fixable: false, humanReview: true },
+  { id: "html-lang-missing", wcag: "3.1.1 Language of Page", level: "A", category: "language", title: "Missing lang on <html>", why: "Screen readers pick the wrong pronunciation rules.", trigger: "The <html> element has no non-empty lang attribute.", severity: "serious", fixable: true, humanReview: false },
+  { id: "link-empty", wcag: "2.4.4 Link Purpose (In Context)", level: "A", category: "links", title: "Link with no accessible name", why: "The link is announced only as 'link'.", trigger: "An <a href> has no text, aria-label, aria-labelledby, image alt or title.", severity: "critical", fixable: true, humanReview: true },
+  { id: "button-empty", wcag: "4.1.2 Name, Role, Value", level: "A", category: "links", title: "Button with no accessible name", why: "The control cannot be identified or voice-operated.", trigger: "A button (or role=button) has no text, aria-label, aria-labelledby, value or title.", severity: "critical", fixable: true, humanReview: true },
+  { id: "link-vague", wcag: "2.4.4 Link Purpose (In Context)", level: "A", category: "links", title: "Potentially vague link text (model, advisory)", why: "'Click here' out of context tells the user nothing.", trigger: "Raised only by the link-text model when it predicts 'vague' with ≥ 60% probability. Advisory — not a deterministic WCAG failure.", severity: "moderate", fixable: true, humanReview: true, source: "model" },
+  { id: "contrast-insufficient", wcag: "1.4.3 Contrast (Minimum)", level: "AA", category: "contrast", title: "Text contrast below the WCAG minimum", why: "Low-vision users cannot read the text.", trigger: "Rendered text colour vs. its flattened background is below 4.5:1 (normal) or 3:1 (large text).", severity: "serious", fixable: true, humanReview: false },
+  { id: "landmark-main-missing", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "No main landmark", why: "Users cannot skip straight to the primary content.", trigger: "No <main> element and no role=main.", severity: "moderate", fixable: true, humanReview: false },
+  { id: "landmark-duplicate-unlabelled", wcag: "1.3.1 Info and Relationships", level: "A", category: "structure", title: "Duplicate landmark without a label", why: "Two navigations sound identical in the landmark list.", trigger: "Two or more nav/aside/form/section elements exist and this one has no accessible name.", severity: "minor", fixable: true, humanReview: true },
+  { id: "table-th-missing", wcag: "1.3.1 Info and Relationships", level: "A", category: "tables", title: "Data table without header cells", why: "Cell values are read without their column meaning.", trigger: "A table not marked role=presentation contains no <th>.", severity: "serious", fixable: true, humanReview: true },
+  { id: "table-caption-missing", wcag: "1.3.1 Info and Relationships", level: "A", category: "tables", title: "Table without a caption", why: "The table's purpose is not announced.", trigger: "A data table has no <caption>.", severity: "minor", fixable: true, humanReview: true },
+  { id: "aria-role-invalid", wcag: "4.1.2 Name, Role, Value", level: "A", category: "aria", title: "Invalid ARIA role", why: "An unknown role is ignored, losing the intended semantics.", trigger: "A role value is not in the WAI-ARIA 1.2 role list.", severity: "serious", fixable: true, humanReview: true },
+  { id: "aria-hidden-focusable", wcag: "4.1.2 Name, Role, Value", level: "A", category: "aria", title: "aria-hidden on a focusable element", why: "Keyboard users land on an element the screen reader ignores.", trigger: "aria-hidden=\"true\" is set on, or wraps, an enabled focusable element.", severity: "critical", fixable: true, humanReview: false },
+  { id: "aria-required-attr", wcag: "4.1.2 Name, Role, Value", level: "A", category: "aria", title: "Missing required ARIA attribute", why: "Widget roles need their state attributes to be usable.", trigger: "A widget role (checkbox, slider, combobox…) lacks a required state attribute.", severity: "serious", fixable: true, humanReview: true },
+  { id: "tabindex-positive", wcag: "2.4.3 Focus Order", level: "A", category: "keyboard", title: "Positive tabindex", why: "It forces an unnatural, unpredictable focus order.", trigger: "tabindex is greater than 0.", severity: "moderate", fixable: true, humanReview: false },
+  { id: "click-handler-non-interactive", wcag: "2.1.1 Keyboard", level: "A", category: "keyboard", title: "Click handler on a non-interactive element", why: "The action is unreachable by keyboard.", trigger: "A non-interactive element has onclick but lacks a role and a tabindex.", severity: "critical", fixable: true, humanReview: true },
+  { id: "mouse-only-handler", wcag: "2.1.1 Keyboard", level: "A", category: "keyboard", title: "Mouse-only event handler", why: "Behaviour bound only to mouse events is unavailable to keyboard users.", trigger: "An element has onmouseover/onmousedown/ondblclick but no onkeydown, onkeyup or onfocus equivalent.", severity: "serious", fixable: false, humanReview: true },
+  { id: "interactive-role-not-focusable", wcag: "2.1.1 Keyboard", level: "A", category: "keyboard", title: "Interactive role that cannot receive focus", why: "A custom control the keyboard cannot reach cannot be operated.", trigger: "An element with an interactive role (button, link, checkbox, tab…) is not natively focusable and has no tabindex.", severity: "serious", fixable: true, humanReview: true },
+  { id: "focus-outline-removed", wcag: "2.4.7 Focus Visible", level: "AA", category: "keyboard", title: "Focus outline removed without replacement (static check)", why: "Keyboard users cannot see which element has focus.", trigger: "A stylesheet rule targeting :focus sets outline to none/0 without a box-shadow or border replacement, or a focusable element has an inline outline:none. Rendered focus styles need manual verification.", severity: "serious", fixable: false, humanReview: true },
+  { id: "media-captions-missing", wcag: "1.2.2 Captions (Prerecorded)", level: "A", category: "media", title: "Media without a captions track", why: "Deaf and hard-of-hearing users lose the content.", trigger: "A <video> or <audio> element has no <track kind=captions|subtitles>.", severity: "serious", fixable: false, humanReview: true },
+  { id: "doc-title-missing", wcag: "2.4.2 Page Titled", level: "A", category: "document", title: "Missing document title", why: "Tabs, history and screen readers have nothing to announce.", trigger: "The document has no non-empty <title>.", severity: "serious", fixable: true, humanReview: true },
+  { id: "doc-duplicate-id", wcag: "4.1.1 Parsing", level: "A", category: "document", title: "Duplicate id value", why: "Label and ARIA references resolve to the wrong element.", trigger: "The same id value appears on more than one element.", severity: "moderate", fixable: false, humanReview: true },
+  { id: "doc-viewport-zoom", wcag: "1.4.4 Resize Text", level: "AA", category: "document", title: "Zoom disabled in the viewport meta", why: "Users who need to zoom cannot.", trigger: "The viewport meta contains user-scalable=no or maximum-scale=1.", severity: "serious", fixable: true, humanReview: false },
 ];
+
+export const RULES: RuleMeta[] = RULE_ROWS.map((row) => ({ ...row, source: row.source ?? "rule" }));
 
 export const RULE_INDEX: Record<string, RuleMeta> = Object.fromEntries(
   RULES.map((rule) => [rule.id, rule]),
@@ -57,6 +116,28 @@ export const RULE_INDEX: Record<string, RuleMeta> = Object.fromEntries(
 
 /** All rule ids in a fixed order — also the one-hot order for the severity model. */
 export const RULE_IDS = RULES.map((rule) => rule.id);
+
+/** Full WCAG mapping for a rule, the single source used by the pipeline, UI and reports. */
+export function wcagMappingOf(ruleId: string) {
+  const meta = RULE_INDEX[ruleId];
+  if (!meta) return null;
+  return {
+    criterion: meta.wcag,
+    level: meta.level,
+    principle: principleOf(meta.wcag),
+    category: meta.category,
+    categoryLabel: CATEGORY_LABEL[meta.category],
+    severity: meta.severity,
+    explanation: meta.why,
+    trigger: meta.trigger,
+    autoFixable: meta.fixable,
+    humanReview: meta.humanReview,
+    source: meta.source,
+  };
+}
+
+/** Distinct WCAG criteria the rule catalogue covers. */
+export const WCAG_CRITERIA_COVERED = Array.from(new Set(RULES.map((rule) => rule.wcag))).sort();
 
 const VALID_ROLES = new Set([
   "alert", "alertdialog", "application", "article", "banner", "button", "cell", "checkbox",
