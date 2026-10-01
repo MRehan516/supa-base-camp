@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as MlLabRouteImport } from './routes/ml-lab'
 import { Route as AuditIndexRouteImport } from './routes/audit.index'
 import { Route as AuditIdRouteImport } from './routes/audit.$id'
 import { Route as CompareIdRouteImport } from './routes/compare.$id'
@@ -27,9 +29,19 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HistoryRoute = HistoryRouteImport.update({
   id: '/history',
   path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MlLabRoute = MlLabRouteImport.update({
+  id: '/ml-lab',
+  path: '/ml-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditIndexRoute = AuditIndexRouteImport.update({
@@ -56,7 +68,9 @@ const RemediateIdRoute = RemediateIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
   '/audit/$id': typeof AuditIdRoute
   '/compare/$id': typeof CompareIdRoute
   '/remediate/$id': typeof RemediateIdRoute
@@ -65,7 +79,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
   '/audit/$id': typeof AuditIdRoute
   '/compare/$id': typeof CompareIdRoute
   '/remediate/$id': typeof RemediateIdRoute
@@ -75,7 +91,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
   '/audit/$id': typeof AuditIdRoute
   '/compare/$id': typeof CompareIdRoute
   '/remediate/$id': typeof RemediateIdRoute
@@ -86,7 +104,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/datasets'
     | '/history'
+    | '/ml-lab'
     | '/audit/$id'
     | '/compare/$id'
     | '/remediate/$id'
@@ -95,7 +115,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/dashboard'
+    | '/datasets'
     | '/history'
+    | '/ml-lab'
     | '/audit/$id'
     | '/compare/$id'
     | '/remediate/$id'
@@ -104,7 +126,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/datasets'
     | '/history'
+    | '/ml-lab'
     | '/audit/$id'
     | '/compare/$id'
     | '/remediate/$id'
@@ -114,7 +138,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  DatasetsRoute: typeof DatasetsRoute
   HistoryRoute: typeof HistoryRoute
+  MlLabRoute: typeof MlLabRoute
   AuditIdRoute: typeof AuditIdRoute
   CompareIdRoute: typeof CompareIdRoute
   RemediateIdRoute: typeof RemediateIdRoute
@@ -137,11 +163,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/history': {
       id: '/history'
       path: '/history'
       fullPath: '/history'
       preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ml-lab': {
+      id: '/ml-lab'
+      path: '/ml-lab'
+      fullPath: '/ml-lab'
+      preLoaderRoute: typeof MlLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit/': {
@@ -178,7 +218,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  DatasetsRoute: DatasetsRoute,
   HistoryRoute: HistoryRoute,
+  MlLabRoute: MlLabRoute,
   AuditIdRoute: AuditIdRoute,
   CompareIdRoute: CompareIdRoute,
   RemediateIdRoute: RemediateIdRoute,
