@@ -17,7 +17,7 @@ export const Route = createFileRoute("/audit/")({
       { property: "og:description", content: "Run WCAG rule checks and model inference against any HTML you supply." },
     ],
   }),
-  component: NewAudit;
+  component: NewAudit,
 });
 
 type Tab = "paste" | "upload" | "samples";
