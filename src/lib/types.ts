@@ -124,6 +124,26 @@ export interface RemediatedPage {
   html_fixed: string;
   score_after: number;
   issues_after: number;
+  after_issues?: AfterIssue[];
+  element_count?: number;
+  created_at: string;
+}
+
+export type FixVerification = "resolved" | "not_resolved" | "partially_resolved";
+
+export interface FixRecord {
+  id: string;
+  issue_id: string;
+  before_html: string;
+  after_html: string;
+  method: string;
+  confidence: number;
+  applied: boolean;
+  status: string;
+  edited: boolean;
+  predicted_success: number | null;
+  verification: FixVerification | null;
+  remediated_page_id: string | null;
   created_at: string;
 }
 
