@@ -87,35 +87,35 @@ function colourSuite(): SuiteResult {
     results: [
       run("black on white is 21:1", () => ({
         expected: 21,
-        actual: round(contrastRatio({ r: 0, g: 0, b: 0 }, { r: 255, g: 255, b: 255 })),
+        actual: round(contrastRatio({ r: 0, g: 0, b: 0, a: 1 }, { r: 255, g: 255, b: 255, a: 1 })),
       })),
       run("white on white is 1:1", () => ({
         expected: 1,
-        actual: round(contrastRatio({ r: 255, g: 255, b: 255 }, { r: 255, g: 255, b: 255 })),
+        actual: round(contrastRatio({ r: 255, g: 255, b: 255, a: 1 }, { r: 255, g: 255, b: 255, a: 1 })),
       })),
       run("luminance of white is 1", () => ({
         expected: 1,
-        actual: round(relativeLuminance({ r: 255, g: 255, b: 255 }), 4),
+        actual: round(relativeLuminance({ r: 255, g: 255, b: 255, a: 1 }), 4),
       })),
       run("luminance of black is 0", () => ({
         expected: 0,
-        actual: round(relativeLuminance({ r: 0, g: 0, b: 0 }), 4),
+        actual: round(relativeLuminance({ r: 0, g: 0, b: 0, a: 1 }), 4),
       })),
       run("#767676 on white is the 4.54:1 borderline", () => ({
         expected: 4.54,
-        actual: round(contrastRatio({ r: 118, g: 118, b: 118 }, { r: 255, g: 255, b: 255 })),
+        actual: round(contrastRatio({ r: 118, g: 118, b: 118, a: 1 }, { r: 255, g: 255, b: 255, a: 1 })),
       })),
       run("rgb() strings parse", () => ({
-        expected: { r: 12, g: 92, b: 92 },
+        expected: { r: 12, g: 92, b: 92, a: 1 },
         actual: parseColour("rgb(12, 92, 92)"),
       })),
       run("3-digit hex expands", () => ({
-        expected: { r: 255, g: 204, b: 0 },
+        expected: { r: 255, g: 204, b: 0, a: 1 },
         actual: parseColour("#fc0"),
       })),
       run("suggested colour reaches the 4.5:1 requirement", () => {
-        const white = { r: 255, g: 255, b: 255 };
-        const fixed = nearestCompliantColour({ r: 154, g: 154, b: 154 }, white, 4.5);
+        const white = { r: 255, g: 255, b: 255, a: 1 };
+        const fixed = nearestCompliantColour({ r: 154, g: 154, b: 154, a: 1 }, white, 4.5);
         return { expected: true, actual: fixed !== null && contrastRatio(fixed, white) >= 4.5 };
       }),
     ],

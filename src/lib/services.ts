@@ -91,7 +91,7 @@ export const AuditService = {
 
     if (result.issues.length) {
       const rows = result.issues.map((issue) => ({ ...issue, audit_id: audit!.id }));
-      const { error: issuesError } = await supabase.from("issues").insert(rows);
+      const { error: issuesError } = await supabase.from("issues").insert(rows as never);
       fail("Could not save the issues", issuesError);
       trace(`db.insert issues → ${rows.length} rows`);
 
@@ -246,7 +246,7 @@ export const MlService = {
         name: MODEL_NAMES[model.kind],
         kind: model.kind,
         version: `v${model.metrics.epochs}-${model.metrics.featureDim}`,
-        metrics: model.metrics as unknown as Record<string, unknown>,
+        metrics: model.metrics as never,
       })
       .select("id")
       .single();

@@ -10,10 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as HistoryRouteImport } from './routes/history'
+import { Route as MethodologyRouteImport } from './routes/methodology'
 import { Route as MlLabRouteImport } from './routes/ml-lab'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TestsRouteImport } from './routes/tests'
 import { Route as AuditIndexRouteImport } from './routes/audit.index'
@@ -24,6 +27,11 @@ import { Route as RemediateIdRouteImport } from './routes/remediate.$id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -41,9 +49,19 @@ const HistoryRoute = HistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MethodologyRoute = MethodologyRouteImport.update({
+  id: '/methodology',
+  path: '/methodology',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MlLabRoute = MlLabRouteImport.update({
   id: '/ml-lab',
   path: '/ml-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -79,10 +97,13 @@ const RemediateIdRoute = RemediateIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
   '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/methodology': typeof MethodologyRoute
   '/ml-lab': typeof MlLabRoute
+  '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/tests': typeof TestsRoute
   '/audit/$id': typeof AuditIdRoute
@@ -92,10 +113,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
   '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/methodology': typeof MethodologyRoute
   '/ml-lab': typeof MlLabRoute
+  '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/tests': typeof TestsRoute
   '/audit/$id': typeof AuditIdRoute
@@ -106,10 +130,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/dashboard': typeof DashboardRoute
   '/datasets': typeof DatasetsRoute
   '/history': typeof HistoryRoute
+  '/methodology': typeof MethodologyRoute
   '/ml-lab': typeof MlLabRoute
+  '/reports': typeof ReportsRoute
   '/settings': typeof SettingsRoute
   '/tests': typeof TestsRoute
   '/audit/$id': typeof AuditIdRoute
@@ -121,10 +148,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$'
     | '/dashboard'
     | '/datasets'
     | '/history'
+    | '/methodology'
     | '/ml-lab'
+    | '/reports'
     | '/settings'
     | '/tests'
     | '/audit/$id'
@@ -134,10 +164,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/dashboard'
     | '/datasets'
     | '/history'
+    | '/methodology'
     | '/ml-lab'
+    | '/reports'
     | '/settings'
     | '/tests'
     | '/audit/$id'
@@ -147,10 +180,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$'
     | '/dashboard'
     | '/datasets'
     | '/history'
+    | '/methodology'
     | '/ml-lab'
+    | '/reports'
     | '/settings'
     | '/tests'
     | '/audit/$id'
@@ -161,10 +197,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   DashboardRoute: typeof DashboardRoute
   DatasetsRoute: typeof DatasetsRoute
   HistoryRoute: typeof HistoryRoute
+  MethodologyRoute: typeof MethodologyRoute
   MlLabRoute: typeof MlLabRoute
+  ReportsRoute: typeof ReportsRoute
   SettingsRoute: typeof SettingsRoute
   TestsRoute: typeof TestsRoute
   AuditIdRoute: typeof AuditIdRoute
@@ -180,6 +219,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -203,11 +249,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HistoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/methodology': {
+      id: '/methodology'
+      path: '/methodology'
+      fullPath: '/methodology'
+      preLoaderRoute: typeof MethodologyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ml-lab': {
       id: '/ml-lab'
       path: '/ml-lab'
       fullPath: '/ml-lab'
       preLoaderRoute: typeof MlLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -257,10 +317,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   DashboardRoute: DashboardRoute,
   DatasetsRoute: DatasetsRoute,
   HistoryRoute: HistoryRoute,
+  MethodologyRoute: MethodologyRoute,
   MlLabRoute: MlLabRoute,
+  ReportsRoute: ReportsRoute,
   SettingsRoute: SettingsRoute,
   TestsRoute: TestsRoute,
   AuditIdRoute: AuditIdRoute,
