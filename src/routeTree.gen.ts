@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuditIndexRouteImport } from './routes/audit.index'
+import { Route as AuditIdRouteImport } from './routes/audit.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,39 +25,57 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuditIndexRoute = AuditIndexRouteImport.update({
   id: '/audit/',
   path: '/audit/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditIdRoute = AuditIdRouteImport.update({
+  id: '/audit/$id',
+  path: '/audit/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/audit/$id': typeof AuditIdRoute
   '/audit/': typeof AuditIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/audit/$id': typeof AuditIdRoute
   '/audit': typeof AuditIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/history': typeof HistoryRoute
+  '/audit/$id': typeof AuditIdRoute
   '/audit/': typeof AuditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/audit/'
+  fullPaths: '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/audit'
-  id: '__root__' | '/' | '/dashboard' | '/audit/'
+  to: '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit'
+  id: '__root__' | '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  HistoryRoute: typeof HistoryRoute
+  AuditIdRoute: typeof AuditIdRoute
   AuditIndexRoute: typeof AuditIndexRoute
 }
 
@@ -75,11 +95,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/audit/': {
       id: '/audit/'
       path: '/audit'
       fullPath: '/audit/'
       preLoaderRoute: typeof AuditIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit/$id': {
+      id: '/audit/$id'
+      path: '/audit/$id'
+      fullPath: '/audit/$id'
+      preLoaderRoute: typeof AuditIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -88,6 +122,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  HistoryRoute: HistoryRoute,
+  AuditIdRoute: AuditIdRoute,
   AuditIndexRoute: AuditIndexRoute,
 }
 export const routeTree = rootRouteImport
