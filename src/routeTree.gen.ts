@@ -10,33 +10,167 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as HistoryRouteImport } from './routes/history'
+import { Route as MlLabRouteImport } from './routes/ml-lab'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TestsRouteImport } from './routes/tests'
+import { Route as AuditIndexRouteImport } from './routes/audit.index'
+import { Route as AuditIdRouteImport } from './routes/audit.$id'
+import { Route as CompareIdRouteImport } from './routes/compare.$id'
+import { Route as RemediateIdRouteImport } from './routes/remediate.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MlLabRoute = MlLabRouteImport.update({
+  id: '/ml-lab',
+  path: '/ml-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TestsRoute = TestsRouteImport.update({
+  id: '/tests',
+  path: '/tests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditIndexRoute = AuditIndexRouteImport.update({
+  id: '/audit/',
+  path: '/audit/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditIdRoute = AuditIdRouteImport.update({
+  id: '/audit/$id',
+  path: '/audit/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareIdRoute = CompareIdRouteImport.update({
+  id: '/compare/$id',
+  path: '/compare/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemediateIdRoute = RemediateIdRouteImport.update({
+  id: '/remediate/$id',
+  path: '/remediate/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
+  '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
+  '/settings': typeof SettingsRoute
+  '/tests': typeof TestsRoute
+  '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
+  '/audit/': typeof AuditIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
+  '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
+  '/settings': typeof SettingsRoute
+  '/tests': typeof TestsRoute
+  '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
+  '/audit': typeof AuditIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/datasets': typeof DatasetsRoute
+  '/history': typeof HistoryRoute
+  '/ml-lab': typeof MlLabRoute
+  '/settings': typeof SettingsRoute
+  '/tests': typeof TestsRoute
+  '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
+  '/audit/': typeof AuditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/datasets'
+    | '/history'
+    | '/ml-lab'
+    | '/settings'
+    | '/tests'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/datasets'
+    | '/history'
+    | '/ml-lab'
+    | '/settings'
+    | '/tests'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/datasets'
+    | '/history'
+    | '/ml-lab'
+    | '/settings'
+    | '/tests'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  DatasetsRoute: typeof DatasetsRoute
+  HistoryRoute: typeof HistoryRoute
+  MlLabRoute: typeof MlLabRoute
+  SettingsRoute: typeof SettingsRoute
+  TestsRoute: typeof TestsRoute
+  AuditIdRoute: typeof AuditIdRoute
+  CompareIdRoute: typeof CompareIdRoute
+  RemediateIdRoute: typeof RemediateIdRoute
+  AuditIndexRoute: typeof AuditIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +182,91 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ml-lab': {
+      id: '/ml-lab'
+      path: '/ml-lab'
+      fullPath: '/ml-lab'
+      preLoaderRoute: typeof MlLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tests': {
+      id: '/tests'
+      path: '/tests'
+      fullPath: '/tests'
+      preLoaderRoute: typeof TestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit/': {
+      id: '/audit/'
+      path: '/audit'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof AuditIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit/$id': {
+      id: '/audit/$id'
+      path: '/audit/$id'
+      fullPath: '/audit/$id'
+      preLoaderRoute: typeof AuditIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/$id': {
+      id: '/compare/$id'
+      path: '/compare/$id'
+      fullPath: '/compare/$id'
+      preLoaderRoute: typeof CompareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/remediate/$id': {
+      id: '/remediate/$id'
+      path: '/remediate/$id'
+      fullPath: '/remediate/$id'
+      preLoaderRoute: typeof RemediateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRoute,
+  DatasetsRoute: DatasetsRoute,
+  HistoryRoute: HistoryRoute,
+  MlLabRoute: MlLabRoute,
+  SettingsRoute: SettingsRoute,
+  TestsRoute: TestsRoute,
+  AuditIdRoute: AuditIdRoute,
+  CompareIdRoute: CompareIdRoute,
+  RemediateIdRoute: RemediateIdRoute,
+  AuditIndexRoute: AuditIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
