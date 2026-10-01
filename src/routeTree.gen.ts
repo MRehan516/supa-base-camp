@@ -14,6 +14,8 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AuditIndexRouteImport } from './routes/audit.index'
 import { Route as AuditIdRouteImport } from './routes/audit.$id'
+import { Route as CompareIdRouteImport } from './routes/compare.$id'
+import { Route as RemediateIdRouteImport } from './routes/remediate.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,12 +42,24 @@ const AuditIdRoute = AuditIdRouteImport.update({
   path: '/audit/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CompareIdRoute = CompareIdRouteImport.update({
+  id: '/compare/$id',
+  path: '/compare/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemediateIdRoute = RemediateIdRouteImport.update({
+  id: '/remediate/$id',
+  path: '/remediate/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
   '/audit/': typeof AuditIndexRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +67,8 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
   '/audit': typeof AuditIndexRoute
 }
 export interface FileRoutesById {
@@ -61,14 +77,38 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/history': typeof HistoryRoute
   '/audit/$id': typeof AuditIdRoute
+  '/compare/$id': typeof CompareIdRoute
+  '/remediate/$id': typeof RemediateIdRoute
   '/audit/': typeof AuditIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/history'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit'
-  id: '__root__' | '/' | '/dashboard' | '/history' | '/audit/$id' | '/audit/'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/history'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/history'
+    | '/audit/$id'
+    | '/compare/$id'
+    | '/remediate/$id'
+    | '/audit/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +116,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   HistoryRoute: typeof HistoryRoute
   AuditIdRoute: typeof AuditIdRoute
+  CompareIdRoute: typeof CompareIdRoute
+  RemediateIdRoute: typeof RemediateIdRoute
   AuditIndexRoute: typeof AuditIndexRoute
 }
 
@@ -116,6 +158,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuditIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/compare/$id': {
+      id: '/compare/$id'
+      path: '/compare/$id'
+      fullPath: '/compare/$id'
+      preLoaderRoute: typeof CompareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/remediate/$id': {
+      id: '/remediate/$id'
+      path: '/remediate/$id'
+      fullPath: '/remediate/$id'
+      preLoaderRoute: typeof RemediateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -124,6 +180,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   HistoryRoute: HistoryRoute,
   AuditIdRoute: AuditIdRoute,
+  CompareIdRoute: CompareIdRoute,
+  RemediateIdRoute: RemediateIdRoute,
   AuditIndexRoute: AuditIndexRoute,
 }
 export const routeTree = rootRouteImport
