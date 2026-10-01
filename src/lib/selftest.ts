@@ -114,8 +114,9 @@ function colourSuite(): SuiteResult {
         actual: parseColour("#fc0"),
       })),
       run("suggested colour reaches the 4.5:1 requirement", () => {
-        const fixed = parseColour(nearestCompliantColour("#9a9a9a", "#ffffff", 4.5))!;
-        return { expected: true, actual: contrastRatio(fixed, { r: 255, g: 255, b: 255 }) >= 4.5 };
+        const white = { r: 255, g: 255, b: 255 };
+        const fixed = nearestCompliantColour({ r: 154, g: 154, b: 154 }, white, 4.5);
+        return { expected: true, actual: fixed !== null && contrastRatio(fixed, white) >= 4.5 };
       }),
     ],
   };
@@ -202,9 +203,10 @@ function remediationSuite(): SuiteResult {
   const html = `<html><head></head><body><img src="rainfall-chart.png"><input type="text" placeholder="Email address"><a href="/annual-report">click here</a></body></html>`;
   const doc = parse(html);
   const findings = runRuleChecks(doc);
-  const issues: Issue[] = findings.map((finding, index) =>
-    issueFrom(finding.ruleId, finding.severityRule, finding.el ? selectorFor(finding.el) : "html") ,
-  ).map((issue, index) => ({ ...issue, id: `i${index}` }));
+  const issues: Issue[] = findings.map((finding, index) => ({
+    ...issueFrom(finding.ruleId, finding.severityRule, finding.el ? selectorFor(finding.el) : "html"),
+    id: `i${index}`,
+  }));
 
   const fixes = generateFixes(html, issues);
   const applied = applyFixes(html, fixes);
@@ -279,8 +281,8 @@ function featureSuite(): SuiteResult {
         actual: charNgrams("chart").length > 0,
       })),
       run("hand features are a fixed-length vector", () => ({
-        expected: handFeatures("one").length,
-        actual: handFeatures("a much longer piece of alt text").length,
+        expected: handFeatures("one").values.length,
+        actual: handFeatures("a much longer piece of alt text").values.length,
       })),
       run("vectorising the same text twice is identical", () => ({
         expected: vectoriser.transform("bar chart of rainfall").slice(0, 20),
