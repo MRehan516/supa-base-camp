@@ -33,7 +33,7 @@ function NewAudit() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const modelsMissing = !models.alt || !models.link || !models.severity;
+  const modelsMissing = !models.alt || !models.link || !models.severity || !models.issueType;
 
   const run = async () => {
     if (!html.trim()) {

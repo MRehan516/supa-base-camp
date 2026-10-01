@@ -51,7 +51,21 @@ export interface MlDetail {
   altLabel?: string;
   linkProbs?: number[];
   linkLabel?: string;
+  /** Issue-type model output over the snippet (supporting evidence only). */
+  typeProbs?: number[];
+  typeClasses?: string[];
+  typeLabel?: string;
 }
+
+/** Concrete evidence recorded for a finding at detection time. */
+export interface IssueEvidence {
+  tag: string;
+  trigger: string;
+  values?: Record<string, string | number | boolean>;
+}
+
+export type IssueStatus = "open" | "suggested" | "applied" | "verified" | "rejected" | "needs_review";
+export const ISSUE_STATUSES: IssueStatus[] = ["open", "suggested", "applied", "verified", "rejected", "needs_review"];
 
 /** A persisted issue (shape matches the `issues` table). */
 export interface Issue {
@@ -68,7 +82,25 @@ export interface Issue {
   ml_confidence: number | null;
   ml_detail: MlDetail | null;
   status: string;
+  issue_code?: string;
+  wcag_principle?: string;
+  category?: string;
+  auto_fixable?: boolean;
+  human_review?: boolean;
+  evidence?: IssueEvidence | null;
+  detection_source?: "rule" | "model";
+  reviewed_at?: string | null;
+  fixes?: FixRecord[];
   created_at?: string;
+}
+
+/** A compact issue record kept for a re-audit (remediated_pages.after_issues). */
+export interface AfterIssue {
+  rule_id: string;
+  selector: string;
+  message: string;
+  severity: Severity;
+  detection_source: "rule" | "model";
 }
 
 export interface Audit {
@@ -93,6 +125,26 @@ export interface RemediatedPage {
   html_fixed: string;
   score_after: number;
   issues_after: number;
+  after_issues?: AfterIssue[];
+  element_count?: number;
+  created_at: string;
+}
+
+export type FixVerification = "resolved" | "not_resolved" | "partially_resolved";
+
+export interface FixRecord {
+  id: string;
+  issue_id: string;
+  before_html: string;
+  after_html: string;
+  method: string;
+  confidence: number;
+  applied: boolean;
+  status: string;
+  edited: boolean;
+  predicted_success: number | null;
+  verification: FixVerification | null;
+  remediated_page_id: string | null;
   created_at: string;
 }
 

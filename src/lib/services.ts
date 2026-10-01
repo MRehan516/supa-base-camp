@@ -17,8 +17,18 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
-import type { Audit, AuditWithIssues, Issue, RemediatedPage, Severity } from "./types";
-import { runPipeline, type PipelineOptions } from "./audit/pipeline";
+import type {
+  AfterIssue,
+  Audit,
+  AuditWithIssues,
+  FixVerification,
+  Issue,
+  IssueStatus,
+  RemediatedPage,
+  Severity,
+} from "./types";
+import { ISSUE_STATUSES } from "./types";
+import { runPipeline, type DraftIssue, type PipelineOptions } from "./audit/pipeline";
 import { applyFixes, generateFixes, type FixPlan } from "./audit/remediate";
 import { computeScore, countBySeverity, severityOf } from "./audit/scoring";
 import {
@@ -26,15 +36,24 @@ import {
   type ModelKind,
   type ModelMetrics,
   type TrainedModel,
+  predictFixSuccess,
   predictText,
-  trainAltModel,
-  trainLinkModel,
-  trainSeverityModel,
+  trainModel,
   type EpochPoint,
 } from "./ml/engine";
 
 function fail(context: string, error: { message: string } | null): void {
   if (error) throw new Error(`${context}: ${error.message}`);
+}
+
+/** Service-layer input limits (validated before anything reaches the database). */
+export const LIMITS = { htmlBytes: 2_000_000, projectName: 120, suggestion: 500, datasetText: 300 };
+
+function validateHtml(html: string): void {
+  if (!html.trim()) throw new Error("There is no HTML to audit.");
+  if (new Blob([html]).size > LIMITS.htmlBytes) {
+    throw new Error(`The HTML is larger than ${(LIMITS.htmlBytes / 1_000_000).toFixed(0)} MB. Audit a smaller page or a single template.`);
+  }
 }
 
 let traceSink: ((line: string) => void) | null = null;
@@ -44,6 +63,16 @@ export function setTraceSink(sink: ((line: string) => void) | null): void {
 }
 function trace(line: string): void {
   traceSink?.(line);
+}
+
+function toAfterIssue(issue: DraftIssue): AfterIssue {
+  return {
+    rule_id: issue.rule_id,
+    selector: issue.selector,
+    message: issue.message,
+    severity: severityOf(issue),
+    detection_source: issue.detection_source ?? "rule",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +86,9 @@ export const AuditService = {
     sourceType: string,
     options: PipelineOptions = {},
   ): Promise<{ auditId: string; score: number; issueCount: number }> {
-    if (!html.trim()) throw new Error("There is no HTML to audit.");
+    validateHtml(html);
+    const name = (projectName || "Untitled page").trim().slice(0, LIMITS.projectName);
+    const source = ["paste", "upload", "sample"].includes(sourceType) ? sourceType : "paste";
 
     const result = await runPipeline(html, {
       ...options,
@@ -69,7 +100,7 @@ export const AuditService = {
 
     const { data: project, error: projectError } = await supabase
       .from("projects")
-      .insert({ name: projectName || "Untitled page", source_type: sourceType })
+      .insert({ name, source_type: source })
       .select("id")
       .single();
     fail("Could not save the project", projectError);
@@ -95,15 +126,22 @@ export const AuditService = {
       fail("Could not save the issues", issuesError);
       trace(`db.insert issues → ${rows.length} rows`);
 
-      const logs = result.issues
-        .filter((issue) => issue.ml_detail?.severityProbs)
-        .map((issue) => ({
-          model_kind: "severity",
-          audit_id: audit!.id,
-          input_text: `${issue.rule_id} @ ${issue.selector}`,
-          probabilities: issue.ml_detail!.severityProbs,
-          predicted_label: issue.severity_ml ?? "",
-        }));
+      const logs: { model_kind: string; audit_id: string; input_text: string; probabilities: number[]; predicted_label: string }[] = [];
+      result.issues.forEach((issue) => {
+        const d = issue.ml_detail;
+        if (d?.severityProbs) {
+          logs.push({ model_kind: "severity", audit_id: audit!.id, input_text: `${issue.rule_id} @ ${issue.selector}`, probabilities: d.severityProbs, predicted_label: issue.severity_ml ?? "" });
+        }
+        if (d?.typeProbs) {
+          logs.push({ model_kind: "issueType", audit_id: audit!.id, input_text: issue.snippet.slice(0, 200), probabilities: d.typeProbs, predicted_label: d.typeLabel ?? "" });
+        }
+        if (d?.altProbs) {
+          logs.push({ model_kind: "alt", audit_id: audit!.id, input_text: String(issue.evidence?.values?.alt ?? ""), probabilities: d.altProbs, predicted_label: d.altLabel ?? "" });
+        }
+        if (d?.linkProbs) {
+          logs.push({ model_kind: "link", audit_id: audit!.id, input_text: String(issue.evidence?.values?.linkText ?? ""), probabilities: d.linkProbs, predicted_label: d.linkLabel ?? "" });
+        }
+      });
       if (logs.length) {
         const { error: logError } = await supabase.from("prediction_logs").insert(logs);
         fail("Could not save the prediction log", logError);
@@ -130,7 +168,7 @@ export const AuditService = {
   async get(id: string): Promise<AuditWithIssues | null> {
     const { data, error } = await supabase
       .from("audits")
-      .select("*, projects(id, name, source_type), issues(*), remediated_pages(*)")
+      .select("*, projects(id, name, source_type), issues(*, fixes(*)), remediated_pages(*)")
       .eq("id", id)
       .maybeSingle();
     fail("Could not load the audit", error);
@@ -139,10 +177,16 @@ export const AuditService = {
     const remediated = ((row.remediated_pages as RemediatedPage[]) ?? []).sort(
       (a, b) => (a.created_at < b.created_at ? 1 : -1),
     );
+    const issues = ((row.issues as Issue[]) ?? []).map((issue) => ({
+      ...issue,
+      fixes: (issue.fixes ?? []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
+    }));
     return {
       ...(row as unknown as Audit),
-      issues: ((row.issues as Issue[]) ?? []).sort((a, b) =>
-        a.rule_id === b.rule_id ? a.selector.localeCompare(b.selector) : a.rule_id.localeCompare(b.rule_id),
+      issues: issues.sort((a, b) =>
+        (a.issue_code ?? "") && (b.issue_code ?? "")
+          ? (a.issue_code ?? "").localeCompare(b.issue_code ?? "")
+          : a.rule_id.localeCompare(b.rule_id),
       ),
       project: (row.projects as AuditWithIssues["project"]) ?? null,
       remediated: remediated[0] ?? null,
@@ -168,23 +212,112 @@ export const AuditService = {
 // Remediation
 // ---------------------------------------------------------------------------
 
+export interface FixOutcome {
+  issueId: string;
+  ruleId: string;
+  selector: string;
+  applied: boolean;
+  predicted: number | null;
+  verification: FixVerification;
+  detail: string;
+}
+
+/**
+ * Decide what the real re-audit says about one applied fix.
+ *  - not_resolved: the same rule still fires on the same element (or the fix could not be applied)
+ *  - partially_resolved: the rule stopped firing but a different rule now fires on that element
+ *  - resolved: neither
+ */
+export function verifyFix(
+  issue: Pick<Issue, "rule_id" | "selector">,
+  applied: boolean,
+  before: Pick<AfterIssue, "rule_id" | "selector">[],
+  after: Pick<AfterIssue, "rule_id" | "selector" | "message">[],
+): { verification: FixVerification; detail: string } {
+  if (!applied) return { verification: "not_resolved", detail: "The fix could not be applied to the element (selector not found)." };
+  const same = after.find((a) => a.rule_id === issue.rule_id && a.selector === issue.selector);
+  if (same) return { verification: "not_resolved", detail: `Re-audit still reports this rule: ${same.message}` };
+  const beforeHere = new Set(before.filter((b) => b.selector === issue.selector).map((b) => b.rule_id));
+  const introduced = after.filter((a) => a.selector === issue.selector && !beforeHere.has(a.rule_id));
+  if (introduced.length) {
+    return { verification: "partially_resolved", detail: `Original rule cleared, but the re-audit now reports ${introduced.map((i) => i.rule_id).join(", ")} on the same element.` };
+  }
+  return { verification: "resolved", detail: "Re-audit no longer reports this rule on this element." };
+}
+
 export const RemediationService = {
   generate(html: string, issues: Issue[]): FixPlan[] {
     return generateFixes(html, issues);
   },
 
-  /** Apply the selected fixes, re-audit the fixed HTML and store both. */
+  /** Fix-success model predictions (null when untrained or the rule is outside its coverage). */
+  async predict(fixes: FixPlan[], issues: Record<string, Issue>, overrides: Record<string, string>): Promise<Record<string, number | null>> {
+    const out: Record<string, number | null> = {};
+    for (const fix of fixes) {
+      const issue = issues[fix.issueId];
+      const value = overrides[fix.issueId] ?? fix.suggestion;
+      const prediction = issue
+        ? await predictFixSuccess({
+            ruleId: issue.rule_id,
+            method: fix.method,
+            suggestion: value,
+            defaultSuggestion: fix.suggestion,
+            heuristicConfidence: fix.confidence,
+            needsReview: fix.needsReview,
+          })
+        : null;
+      out[fix.issueId] = prediction ? prediction.probabilities[prediction.classes.indexOf("resolved")] : null;
+    }
+    return out;
+  },
+
+  async setStatus(issueIds: string[], status: IssueStatus): Promise<void> {
+    if (!ISSUE_STATUSES.includes(status)) throw new Error(`Unknown status "${status}".`);
+    if (!issueIds.length) return;
+    const { error } = await supabase.from("issues").update({ status } as never).in("id", issueIds);
+    fail("Could not update issue status", error);
+    trace(`db.update issues.status=${status} → ${issueIds.length} rows`);
+  },
+
+  async markReviewed(issueId: string): Promise<void> {
+    const { error } = await supabase.from("issues").update({ reviewed_at: new Date().toISOString() } as never).eq("id", issueId);
+    fail("Could not mark the issue as reviewed", error);
+    trace(`db.update issues.reviewed_at → ${issueId}`);
+  },
+
+  async reject(issue: Issue, fix: FixPlan): Promise<void> {
+    const { error } = await supabase.from("fixes").insert({
+      issue_id: issue.id,
+      before_html: fix.before,
+      after_html: fix.after,
+      method: fix.method,
+      confidence: fix.confidence,
+      applied: false,
+      status: "rejected",
+    } as never);
+    fail("Could not record the rejection", error);
+    await RemediationService.setStatus([issue.id], "rejected");
+  },
+
+  /** Apply the selected fixes, re-run the real audit, verify each fix and store everything. */
   async apply(
     audit: AuditWithIssues,
     fixes: FixPlan[],
     overrides: Record<string, string>,
+    predictions: Record<string, number | null>,
     options: PipelineOptions = {},
-  ): Promise<{ remediated: RemediatedPage; html: string }> {
+  ): Promise<{ remediated: RemediatedPage; html: string; outcomes: FixOutcome[] }> {
     if (!fixes.length) throw new Error("Select at least one fix to apply.");
-    const { html, applied, failed } = applyFixes(audit.html_source, fixes, overrides);
+    const clean: Record<string, string> = {};
+    Object.entries(overrides).forEach(([key, value]) => {
+      clean[key] = value.slice(0, LIMITS.suggestion);
+    });
+    const { html, applied, failed } = applyFixes(audit.html_source, fixes, clean);
     trace(`remediation: ${applied.length} applied, ${failed.length} could not be applied`);
 
     const reaudit = await runPipeline(html, options);
+    const afterIssues = reaudit.issues.map(toAfterIssue);
+    const before = audit.issues.map((i) => ({ rule_id: i.rule_id, selector: i.selector }));
 
     const { data, error } = await supabase
       .from("remediated_pages")
@@ -193,31 +326,72 @@ export const RemediationService = {
         html_fixed: html,
         score_after: reaudit.score,
         issues_after: reaudit.issues.length,
-      })
+        after_issues: afterIssues,
+        element_count: reaudit.elementCount,
+      } as never)
       .select("*")
       .single();
     fail("Could not save the remediated page", error);
-    trace(`db.insert remediated_pages → ${data!.id}`);
+    const page = data as unknown as RemediatedPage;
+    trace(`db.insert remediated_pages → ${page.id}`);
 
-    if (applied.length) {
-      const rows = applied.map((fix) => ({
+    const issueById = Object.fromEntries(audit.issues.map((i) => [i.id, i]));
+    const outcomes: FixOutcome[] = [...applied.map((f) => ({ f, ok: true })), ...failed.map((f) => ({ f, ok: false }))].map(({ f, ok }) => {
+      const issue = issueById[f.issueId];
+      const v = verifyFix(issue, ok, before, afterIssues);
+      return {
+        issueId: f.issueId,
+        ruleId: issue.rule_id,
+        selector: issue.selector,
+        applied: ok,
+        predicted: predictions[f.issueId] ?? null,
+        verification: v.verification,
+        detail: v.detail,
+      };
+    });
+
+    const allFixes = [...applied, ...failed];
+    const rows = allFixes.map((fix) => {
+      const outcome = outcomes.find((o) => o.issueId === fix.issueId)!;
+      const original = fixes.find((f) => f.issueId === fix.issueId);
+      return {
         issue_id: fix.issueId,
         before_html: fix.before,
-        after_html: fix.after,
+        after_html: fix.after.replace(original?.suggestion ?? "", fix.suggestion),
         method: fix.method,
         confidence: fix.confidence,
-        applied: true,
-      }));
-      const { error: fixError } = await supabase.from("fixes").insert(rows);
-      fail("Could not save the fixes", fixError);
-      trace(`db.insert fixes → ${rows.length} rows`);
+        applied: outcome.applied,
+        status: outcome.applied ? "applied" : "failed",
+        edited: Boolean(original && original.suggestion !== fix.suggestion),
+        predicted_success: outcome.predicted,
+        verification: outcome.verification,
+        remediated_page_id: page.id,
+      };
+    });
+    const { error: fixError } = await supabase.from("fixes").insert(rows as never);
+    fail("Could not save the fixes", fixError);
+    trace(`db.insert fixes → ${rows.length} rows`);
 
-      const ids = applied.map((fix) => fix.issueId);
-      const { error: statusError } = await supabase.from("issues").update({ status: "fixed" }).in("id", ids);
-      fail("Could not update issue status", statusError);
+    const verified = outcomes.filter((o) => o.verification === "resolved").map((o) => o.issueId);
+    const review = outcomes.filter((o) => o.verification !== "resolved").map((o) => o.issueId);
+    await RemediationService.setStatus(verified, "verified");
+    await RemediationService.setStatus(review, "needs_review");
+
+    const fixLogs = outcomes
+      .filter((o) => o.predicted !== null)
+      .map((o) => ({
+        model_kind: "fixSuccess",
+        audit_id: audit.id,
+        input_text: `${o.ruleId} @ ${o.selector} → actual ${o.verification}`,
+        probabilities: [o.predicted!, 1 - o.predicted!],
+        predicted_label: o.predicted! >= 0.5 ? "resolved" : "not_resolved",
+      }));
+    if (fixLogs.length) {
+      const { error: logError } = await supabase.from("prediction_logs").insert(fixLogs);
+      fail("Could not save the fix predictions", logError);
     }
 
-    return { remediated: data as RemediatedPage, html };
+    return { remediated: page, html, outcomes };
   },
 };
 
@@ -228,14 +402,9 @@ export const RemediationService = {
 export const MlService = {
   async train(kind: ModelKind, onEpoch?: (point: EpochPoint) => void): Promise<TrainedModel> {
     trace(`ml.train ${kind} started`);
-    const model =
-      kind === "alt"
-        ? await trainAltModel(onEpoch)
-        : kind === "link"
-          ? await trainLinkModel(onEpoch)
-          : await trainSeverityModel(onEpoch);
+    const model = await trainModel(kind, onEpoch);
     await MlService.record(model);
-    trace(`ml.train ${kind} finished — val accuracy ${(model.metrics.accuracy * 100).toFixed(2)}%`);
+    trace(`ml.train ${kind} finished — test accuracy ${(model.metrics.accuracy * 100).toFixed(2)}%`);
     return model;
   },
 
@@ -246,7 +415,7 @@ export const MlService = {
         name: MODEL_NAMES[model.kind],
         kind: model.kind,
         version: `v${model.metrics.epochs}-${model.metrics.featureDim}`,
-        metrics: model.metrics as never,
+        metrics: JSON.parse(JSON.stringify(model.metrics)),
       })
       .select("id")
       .single();
@@ -331,7 +500,13 @@ export const DatasetService = {
   },
 
   async add(dataset: string, text: string, label: string): Promise<void> {
+    const allowed: Record<string, string[]> = {
+      alt: ["missing_info", "poor", "good", "decorative_ok"],
+      link: ["vague", "descriptive"],
+    };
+    if (!allowed[dataset]?.includes(label)) throw new Error("Unknown dataset or label.");
     if (!text.trim() && dataset !== "alt") throw new Error("Enter the text for the example.");
+    if (text.length > LIMITS.datasetText) throw new Error(`Keep examples under ${LIMITS.datasetText} characters.`);
     const { error } = await supabase.from("dataset_examples").insert({ dataset, text, label });
     fail("Could not save the example", error);
     trace(`db.insert dataset_examples → ${dataset}/${label}`);
@@ -397,6 +572,7 @@ export const ReportService = {
   toJson(audit: AuditWithIssues): string {
     return JSON.stringify(
       {
+        note: "AccessLens Audit Score is a project-defined metric summarising detected issues. It is not a certification of WCAG compliance.",
         audit: {
           id: audit.id,
           created_at: audit.created_at,
@@ -406,6 +582,13 @@ export const ReportService = {
           project: audit.project?.name ?? null,
         },
         issues: audit.issues,
+        remediation: audit.remediated
+          ? {
+              score_after: audit.remediated.score_after,
+              issues_after: audit.remediated.issues_after,
+              after_issues: audit.remediated.after_issues ?? [],
+            }
+          : null,
       },
       null,
       2,
@@ -413,17 +596,29 @@ export const ReportService = {
   },
 
   toCsv(audit: AuditWithIssues): string {
-    const header = ["rule_id", "wcag_criterion", "level", "selector", "severity_rule", "severity_ml", "ml_confidence", "message"];
-    const escape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const header = ["issue_code", "rule_id", "wcag_criterion", "level", "principle", "category", "detection_source", "selector", "severity_rule", "severity_ml", "ml_confidence", "auto_fixable", "human_review", "status", "message"];
+    // Prefix cells that a spreadsheet would treat as formulas (CSV injection).
+    const escape = (value: unknown) => {
+      let text = String(value ?? "");
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return `"${text.replace(/"/g, '""')}"`;
+    };
     const lines = audit.issues.map((issue) =>
       [
+        issue.issue_code ?? "",
         issue.rule_id,
         issue.wcag_criterion,
         issue.wcag_level,
+        issue.wcag_principle ?? "",
+        issue.category ?? "",
+        issue.detection_source ?? "rule",
         issue.selector,
         issue.severity_rule,
         issue.severity_ml ?? "",
         issue.ml_confidence?.toFixed(4) ?? "",
+        issue.auto_fixable ?? "",
+        issue.human_review ?? "",
+        issue.status,
         issue.message,
       ]
         .map(escape)

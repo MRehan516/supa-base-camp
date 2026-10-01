@@ -83,9 +83,14 @@ export type Database = {
           before_html: string
           confidence: number
           created_at: string
+          edited: boolean
           id: string
           issue_id: string
           method: string
+          predicted_success: number | null
+          remediated_page_id: string | null
+          status: string
+          verification: string | null
         }
         Insert: {
           after_html?: string
@@ -93,9 +98,14 @@ export type Database = {
           before_html?: string
           confidence?: number
           created_at?: string
+          edited?: boolean
           id?: string
           issue_id: string
           method?: string
+          predicted_success?: number | null
+          remediated_page_id?: string | null
+          status?: string
+          verification?: string | null
         }
         Update: {
           after_html?: string
@@ -103,9 +113,14 @@ export type Database = {
           before_html?: string
           confidence?: number
           created_at?: string
+          edited?: boolean
           id?: string
           issue_id?: string
           method?: string
+          predicted_success?: number | null
+          remediated_page_id?: string | null
+          status?: string
+          verification?: string | null
         }
         Relationships: [
           {
@@ -115,16 +130,30 @@ export type Database = {
             referencedRelation: "issues"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fixes_remediated_page_id_fkey"
+            columns: ["remediated_page_id"]
+            isOneToOne: false
+            referencedRelation: "remediated_pages"
+            referencedColumns: ["id"]
+          },
         ]
       }
       issues: {
         Row: {
           audit_id: string
+          auto_fixable: boolean
+          category: string
           created_at: string
+          detection_source: string
+          evidence: Json | null
+          human_review: boolean
           id: string
+          issue_code: string
           message: string
           ml_confidence: number | null
           ml_detail: Json | null
+          reviewed_at: string | null
           rule_id: string
           selector: string
           severity_ml: string | null
@@ -133,14 +162,22 @@ export type Database = {
           status: string
           wcag_criterion: string
           wcag_level: string
+          wcag_principle: string
         }
         Insert: {
           audit_id: string
+          auto_fixable?: boolean
+          category?: string
           created_at?: string
+          detection_source?: string
+          evidence?: Json | null
+          human_review?: boolean
           id?: string
+          issue_code?: string
           message?: string
           ml_confidence?: number | null
           ml_detail?: Json | null
+          reviewed_at?: string | null
           rule_id: string
           selector: string
           severity_ml?: string | null
@@ -149,14 +186,22 @@ export type Database = {
           status?: string
           wcag_criterion: string
           wcag_level?: string
+          wcag_principle?: string
         }
         Update: {
           audit_id?: string
+          auto_fixable?: boolean
+          category?: string
           created_at?: string
+          detection_source?: string
+          evidence?: Json | null
+          human_review?: boolean
           id?: string
+          issue_code?: string
           message?: string
           ml_confidence?: number | null
           ml_detail?: Json | null
+          reviewed_at?: string | null
           rule_id?: string
           selector?: string
           severity_ml?: string | null
@@ -165,6 +210,7 @@ export type Database = {
           status?: string
           wcag_criterion?: string
           wcag_level?: string
+          wcag_principle?: string
         }
         Relationships: [
           {
@@ -264,24 +310,30 @@ export type Database = {
       }
       remediated_pages: {
         Row: {
+          after_issues: Json
           audit_id: string
           created_at: string
+          element_count: number
           html_fixed: string
           id: string
           issues_after: number
           score_after: number
         }
         Insert: {
+          after_issues?: Json
           audit_id: string
           created_at?: string
+          element_count?: number
           html_fixed: string
           id?: string
           issues_after?: number
           score_after?: number
         }
         Update: {
+          after_issues?: Json
           audit_id?: string
           created_at?: string
+          element_count?: number
           html_fixed?: string
           id?: string
           issues_after?: number

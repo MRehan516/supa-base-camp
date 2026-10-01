@@ -482,8 +482,9 @@ export function buildFix(doc: Document, issue: Issue): FixPlan | null {
         suggestion: "button",
         suggestionLabel: "Role",
         confidence: 0.65,
-        needsReview: false,
-        explanation: "Adds role and tabindex=0 so keyboard users can reach the action.",
+        needsReview: true,
+        explanation:
+          "Adds role and tabindex=0 so keyboard users can reach the action. A developer still has to add an Enter/Space key handler (or use a real <button>) — the static re-audit cannot verify that.",
         render: (value) => {
           const clone = el.cloneNode(true) as Element;
           clone.setAttribute("role", value);
@@ -499,6 +500,31 @@ export function buildFix(doc: Document, issue: Issue): FixPlan | null {
         },
       });
     }
+
+    case "interactive-role-not-focusable": {
+      if (!el) return null;
+      return plan({
+        method: "replace-element",
+        suggestion: "0",
+        suggestionLabel: "tabindex",
+        confidence: 0.7,
+        needsReview: true,
+        explanation:
+          "Adds tabindex=0 so the custom control enters the focus order. Keyboard activation behaviour still needs manual testing.",
+        render: (value) => {
+          const clone = el.cloneNode(true) as Element;
+          clone.setAttribute("tabindex", value);
+          return clone.outerHTML.slice(0, 400);
+        },
+        apply: (docTarget, value) => {
+          const node = findElement(docTarget, issue.selector);
+          if (!node) return false;
+          node.setAttribute("tabindex", value);
+          return true;
+        },
+      });
+    }
+
 
     case "aria-role-invalid": {
       if (!el) return null;

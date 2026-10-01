@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { Breadcrumbs, PageHeader, Panel, SectionLabel } from "@/components/primitives";
 import { useApp } from "@/lib/app-context";
-import { MODEL_NAMES, type ModelKind } from "@/lib/ml/engine";
+import { ALL_MODEL_KINDS, MODEL_NAMES } from "@/lib/ml/engine";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -111,7 +111,7 @@ function Settings() {
           <div className="rule-line mt-6 border-t pt-4">
             <SectionLabel>Stored models</SectionLabel>
             <ul className="mt-3 space-y-2 text-sm">
-              {(["alt", "link", "severity"] as ModelKind[]).map((kind) => (
+              {ALL_MODEL_KINDS.map((kind) => (
                 <li key={kind} className="flex flex-wrap items-center justify-between gap-3">
                   <span>
                     {MODEL_NAMES[kind]}
